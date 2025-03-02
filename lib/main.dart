@@ -19,8 +19,7 @@ class TaskFlowHome extends StatefulWidget {
   _TaskFlowHomeState createState() => _TaskFlowHomeState();
 }
 
-class _TaskFlowHomeState extends State<TaskFlowHome> {
-  // State
+class _TaskFlowHomeState extends State<TaskFlowHome> with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> tasks = [];
   int streak = 0;
   String? lastEnergy;
@@ -35,15 +34,30 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
   int challengeProgress = 0;
   int points = 0;
   int streakFreezes = 1;
+  late AnimationController _controller;
+  late Animation<Offset> _offsetAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadData();
     Timer.periodic(Duration(seconds: 30), (timer) => _checkEnergyAndReset());
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    _offsetAnimation = Tween<Offset>(begin: Offset(0, -1), end: Offset.zero).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
+    _controller.forward();
   }
 
-  // Load data
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   _loadData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -70,7 +84,6 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
     if (!challengeActive && streak > 0) _startChallenge();
   }
 
-  // Save data
   _saveData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setInt('streak', streak);
@@ -88,7 +101,6 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
     );
   }
 
-  // Guided Day
   _loadGuidedDay() {
     setState(() {
       tasks = [
@@ -114,14 +126,13 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
               _saveData();
               Navigator.pop(context);
             },
-            child: Text("Begin"),
+            child: Text("Start"),
           ),
         ],
       ),
     );
   }
 
-  // Energy and streak check
   _checkEnergyAndReset() {
     DateTime now = DateTime.now();
     if (now.hour == 0 && now.minute == 0 && lastReset!.day != now.day) {
@@ -144,7 +155,6 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
     }
   }
 
-  // Add task
   _addTask(String title, String complexity) {
     TimeOfDay suggestedTime = _suggestTime(complexity, lastEnergy);
     setState(() {
@@ -153,7 +163,6 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
     _saveData();
   }
 
-  // AI scheduling
   TimeOfDay _suggestTime(String complexity, String? energy) {
     int hour = energy == 'High'
         ? (complexity == 'Hard' ? 10 : complexity == 'Medium' ? 14 : 16)
@@ -163,7 +172,6 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
     return TimeOfDay(hour: hour, minute: 0);
   }
 
-  // Complete task
   _completeTask(int index) {
     setState(() {
       tasks[index]['done'] = true;
@@ -189,7 +197,6 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
     _saveData();
   }
 
-  // Start challenge
   _startChallenge() {
     setState(() {
       challengeActive = true;
@@ -204,12 +211,11 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
       builder: (context) => AlertDialog(
         title: Text(title),
         content: Text(message),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("Great!"))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("Nice!"))],
       ),
     );
   }
 
-  // Energy check
   _showEnergyCheck() {
     double _energy = 2.0;
     showDialog(
@@ -250,7 +256,6 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
     );
   }
 
-  // Add task dialog
   _showAddTaskDialog() {
     String title = '';
     String complexity = 'Medium';
@@ -289,7 +294,6 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
     );
   }
 
-  // Settings & Shop
   _showSettingsDialog() {
     String tempFreq = energyFrequency;
     showDialog(
@@ -357,8 +361,23 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
       theme: darkModeUnlocked && streak >= 7 ? ThemeData.dark() : ThemeData(primarySwatch: Colors.blue),
       home: Scaffold(
         appBar: AppBar(
-          title: Text("TaskFlow"),
+          title: SlideTransition(
+            position: _offsetAnimation,
+            child: Text("TaskFlow"),
+          ),
           actions: [
+            IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: () {
+                setState(() {
+                  streak = 0;
+                  tasks.clear();
+                  _saveData();
+                });
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Streak Reset!")));
+              },
+              tooltip: "Reset Streak",
+            ),
             IconButton(
               icon: Icon(Icons.settings),
               onPressed: _showSettingsDialog,
@@ -370,7 +389,7 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Next Up", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)),
+              Text("Next Up", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               tasks.isNotEmpty
                   ? Card(
                       elevation: 4,
@@ -401,7 +420,7 @@ class _TaskFlowHomeState extends State<TaskFlowHome> {
                   child: Text("Challenge: $challengeProgress/2 tasks", style: TextStyle(color: Colors.orange)),
                 ),
               SizedBox(height: 20),
-              Text("All Tasks", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)),
+              Text("All Tasks", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               Expanded(
                 child: ListView.builder(
                   itemCount: tasks.length,
