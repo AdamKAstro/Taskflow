@@ -35,21 +35,17 @@ class _TaskFlowHomeState extends State<TaskFlowHome> with SingleTickerProviderSt
   int points = 0;
   int streakFreezes = 1;
   late AnimationController _controller;
-  late Animation<Offset> _offsetAnimation;
+  late Animation<double> _pointsAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadData();
     Timer.periodic(Duration(seconds: 30), (timer) => _checkEnergyAndReset());
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
+    _controller = AnimationController(duration: Duration(milliseconds: 500), vsync: this);
+    _pointsAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
     );
-    _offsetAnimation = Tween<Offset>(begin: Offset(0, -1), end: Offset.zero).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _controller.forward();
   }
 
   @override
@@ -175,25 +171,31 @@ class _TaskFlowHomeState extends State<TaskFlowHome> with SingleTickerProviderSt
   _completeTask(int index) {
     setState(() {
       tasks[index]['done'] = true;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Task Done! 🎉")));
-      if (challengeActive) {
-        challengeProgress++;
-        if (challengeProgress >= 2) {
-          points += 10;
-          _showRewardDialog("Challenge Done!", "2 tasks—10 points!");
-          challengeActive = false;
-        }
-      }
-      if (tasks.every((t) => t['done']) && DateTime.now().hour >= 18) {
-        streak++;
-        energyCheckShownToday = false;
-        if (streak == 7 && !darkModeUnlocked) {
-          darkModeUnlocked = true;
-          _showRewardDialog("Dark Mode Unlocked!", "7-day streak!");
-        }
-        _startChallenge();
-      }
+      _controller.reset();
+      _controller.forward();
     });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Task Done! 🎉")));
+    if (challengeActive) {
+      challengeProgress++;
+      if (challengeProgress >= 2) {
+        points += 10;
+        _controller.reset();
+        _controller.forward();
+        _showRewardDialog("Challenge Done!", "2 tasks—10 points!");
+        challengeActive = false;
+      }
+    }
+    if (tasks.every((t) => t['done']) && DateTime.now().hour >= 18) {
+      streak++;
+      _controller.reset();
+      _controller.forward();
+      energyCheckShownToday = false;
+      if (streak == 7 && !darkModeUnlocked) {
+        darkModeUnlocked = true;
+        _showRewardDialog("Dark Mode Unlocked!", "7-day streak!");
+      }
+      _startChallenge();
+    }
     _saveData();
   }
 
@@ -329,6 +331,8 @@ class _TaskFlowHomeState extends State<TaskFlowHome> with SingleTickerProviderSt
                             setState(() {
                               points -= 20;
                               streakFreezes++;
+                              _controller.reset();
+                              _controller.forward();
                             });
                             _saveData();
                             setDialogState(() {});
@@ -361,10 +365,7 @@ class _TaskFlowHomeState extends State<TaskFlowHome> with SingleTickerProviderSt
       theme: darkModeUnlocked && streak >= 7 ? ThemeData.dark() : ThemeData(primarySwatch: Colors.blue),
       home: Scaffold(
         appBar: AppBar(
-          title: SlideTransition(
-            position: _offsetAnimation,
-            child: Text("TaskFlow"),
-          ),
+          title: Text("TaskFlow"),
           actions: [
             IconButton(
               icon: Icon(Icons.refresh),
@@ -410,7 +411,10 @@ class _TaskFlowHomeState extends State<TaskFlowHome> with SingleTickerProviderSt
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text("Streak: $streak days", style: TextStyle(fontSize: 16)),
-                  Text("Points: $points", style: TextStyle(fontSize: 16)),
+                  ScaleTransition(
+                    scale: _pointsAnimation,
+                    child: Text("Points: $points", style: TextStyle(fontSize: 16)),
+                  ),
                 ],
               ),
               LinearProgressIndicator(value: streak / 7.clamp(0, 1), minHeight: 8, color: Colors.blue),
