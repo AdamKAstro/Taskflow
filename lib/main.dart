@@ -213,7 +213,12 @@ class _TaskFlowHomeState extends State<TaskFlowHome> with SingleTickerProviderSt
       builder: (context) => AlertDialog(
         title: Text(title),
         content: Text(message),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("Nice!"))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Nice!"),
+          ),
+        ],
       ),
     );
   }
@@ -240,7 +245,10 @@ class _TaskFlowHomeState extends State<TaskFlowHome> with SingleTickerProviderSt
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text("Skip")),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Skip"),
+            ),
             TextButton(
               onPressed: () {
                 setState(() {
